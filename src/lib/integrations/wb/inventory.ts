@@ -5,16 +5,15 @@ import type {
   WbInventoryItem,
   WbInventoryResult,
   WbProductCard,
+  WbProductSource,
 } from "@/lib/integrations/types";
 import { getWbApiToken } from "@/lib/integrations/wb/config";
 import { WbClient } from "@/lib/integrations/wb/client";
 import { mapWbHttpError } from "@/lib/integrations/wb/errors";
 import { fetchWbStocks } from "@/lib/integrations/wb/stocks";
 
-const MAX_INVENTORY_ROWS = 100;
 const CARDS_PAGE_SIZE = 100;
-const MAX_ACTIVE_PRODUCTS_SCANNED = 1000;
-const MAX_TRASH_PRODUCTS_SCANNED = 1000;
+const MAX_CARDS_SCANNED = 100_000;
 
 const QUANTITY_SCOPE =
   "quantity относится ко всему nmID на складе, а не к конкретному размеру";
@@ -31,6 +30,8 @@ type TrashCardsCursor = {
 
 type ProductLookupResult = {
   map: Map<number, WbProductCard>;
+  activeNmIds: Set<number>;
+  trashNmIds: Set<number>;
   activeProductsScanned: number;
   trashProductsScanned: number;
   matchedFromActiveCount: number;
@@ -193,14 +194,15 @@ function collectUniqueNmIds(
   return ids;
 }
 
-function getUnmatchedNmIds(
+function getUnmatchedNmIdsFromSets(
   targetNmIds: Set<number>,
-  productMap: Map<number, WbProductCard>,
+  activeNmIds: Set<number>,
+  trashNmIds: Set<number>,
 ): number[] {
   const unmatched: number[] = [];
 
   for (const nmID of targetNmIds) {
-    if (!productMap.has(nmID)) {
+    if (!activeNmIds.has(nmID) && !trashNmIds.has(nmID)) {
       unmatched.push(nmID);
     }
   }
@@ -208,25 +210,11 @@ function getUnmatchedNmIds(
   return unmatched.sort((a, b) => a - b);
 }
 
-function countMatchedNmIds(
-  targetNmIds: Set<number>,
-  productMap: Map<number, WbProductCard>,
-): number {
-  let matched = 0;
-
-  for (const nmID of targetNmIds) {
-    if (productMap.has(nmID)) {
-      matched += 1;
-    }
-  }
-
-  return matched;
-}
-
-function ingestCardsPage(
+function ingestActiveCardsPage(
   rawCards: unknown[],
   targetNmIds: Set<number>,
   productMap: Map<number, WbProductCard>,
+  activeNmIds: Set<number>,
 ): number {
   let scanned = 0;
 
@@ -241,16 +229,61 @@ function ingestCardsPage(
 
     if (targetNmIds.has(card.nmID)) {
       productMap.set(card.nmID, card);
+      activeNmIds.add(card.nmID);
     }
   }
 
   return scanned;
 }
 
+function ingestTrashCardsPage(
+  rawCards: unknown[],
+  targetNmIds: Set<number>,
+  productMap: Map<number, WbProductCard>,
+  activeNmIds: Set<number>,
+  trashNmIds: Set<number>,
+): number {
+  let scanned = 0;
+
+  for (const rawCard of rawCards) {
+    const card = normalizeCard(rawCard);
+
+    if (!card) {
+      continue;
+    }
+
+    scanned += 1;
+
+    if (targetNmIds.has(card.nmID) && !activeNmIds.has(card.nmID)) {
+      productMap.set(card.nmID, card);
+      trashNmIds.add(card.nmID);
+    }
+  }
+
+  return scanned;
+}
+
+function resolveProductSource(
+  nmID: number,
+  activeNmIds: Set<number>,
+  trashNmIds: Set<number>,
+): WbProductSource {
+  if (activeNmIds.has(nmID)) {
+    return "active";
+  }
+
+  if (trashNmIds.has(nmID)) {
+    return "trash";
+  }
+
+  return "unknown";
+}
+
 async function scanActiveCards(
   client: WbClient,
   targetNmIds: Set<number>,
   productMap: Map<number, WbProductCard>,
+  activeNmIds: Set<number>,
 ): Promise<{
   scanned: number;
   durationMs: number;
@@ -262,11 +295,8 @@ async function scanActiveCards(
   let cursor: ActiveCardsCursor | undefined;
   let lastHttpStatus: number | undefined;
 
-  while (scanned < MAX_ACTIVE_PRODUCTS_SCANNED) {
-    const pageLimit = Math.min(
-      CARDS_PAGE_SIZE,
-      MAX_ACTIVE_PRODUCTS_SCANNED - scanned,
-    );
+  while (scanned < MAX_CARDS_SCANNED) {
+    const pageLimit = Math.min(CARDS_PAGE_SIZE, MAX_CARDS_SCANNED - scanned);
     const response = await client.getProductCardsPage(pageLimit, cursor);
     durationMs += response.durationMs;
     lastHttpStatus = response.status || lastHttpStatus;
@@ -295,13 +325,18 @@ async function scanActiveCards(
       break;
     }
 
-    scanned += ingestCardsPage(rawCards, targetNmIds, productMap);
+    scanned += ingestActiveCardsPage(
+      rawCards,
+      targetNmIds,
+      productMap,
+      activeNmIds,
+    );
 
-    if (countMatchedNmIds(targetNmIds, productMap) >= targetNmIds.size) {
+    if (activeNmIds.size >= targetNmIds.size) {
       break;
     }
 
-    if (scanned >= MAX_ACTIVE_PRODUCTS_SCANNED) {
+    if (scanned >= MAX_CARDS_SCANNED) {
       break;
     }
 
@@ -325,6 +360,8 @@ async function scanTrashCards(
   client: WbClient,
   targetNmIds: Set<number>,
   productMap: Map<number, WbProductCard>,
+  activeNmIds: Set<number>,
+  trashNmIds: Set<number>,
 ): Promise<{
   scanned: number;
   durationMs: number;
@@ -336,11 +373,8 @@ async function scanTrashCards(
   let cursor: TrashCardsCursor | undefined;
   let lastHttpStatus: number | undefined;
 
-  while (scanned < MAX_TRASH_PRODUCTS_SCANNED) {
-    const pageLimit = Math.min(
-      CARDS_PAGE_SIZE,
-      MAX_TRASH_PRODUCTS_SCANNED - scanned,
-    );
+  while (scanned < MAX_CARDS_SCANNED) {
+    const pageLimit = Math.min(CARDS_PAGE_SIZE, MAX_CARDS_SCANNED - scanned);
     const response = await client.getProductCardsTrashPage(pageLimit, cursor);
     durationMs += response.durationMs;
     lastHttpStatus = response.status || lastHttpStatus;
@@ -369,13 +403,23 @@ async function scanTrashCards(
       break;
     }
 
-    scanned += ingestCardsPage(rawCards, targetNmIds, productMap);
+    scanned += ingestTrashCardsPage(
+      rawCards,
+      targetNmIds,
+      productMap,
+      activeNmIds,
+      trashNmIds,
+    );
 
-    if (countMatchedNmIds(targetNmIds, productMap) >= targetNmIds.size) {
+    const matchedRemaining = [...targetNmIds].filter(
+      (nmID) => activeNmIds.has(nmID) || trashNmIds.has(nmID),
+    ).length;
+
+    if (matchedRemaining >= targetNmIds.size) {
       break;
     }
 
-    if (scanned >= MAX_TRASH_PRODUCTS_SCANNED) {
+    if (scanned >= MAX_CARDS_SCANNED) {
       break;
     }
 
@@ -403,6 +447,8 @@ async function fetchProductsForNmIds(
   if (!token) {
     return {
       map: new Map(),
+      activeNmIds: new Set(),
+      trashNmIds: new Set(),
       activeProductsScanned: 0,
       trashProductsScanned: 0,
       matchedFromActiveCount: 0,
@@ -419,34 +465,54 @@ async function fetchProductsForNmIds(
 
   const client = new WbClient(token);
   const productMap = new Map<number, WbProductCard>();
+  const activeNmIds = new Set<number>();
+  const trashNmIds = new Set<number>();
 
-  const activeScan = await scanActiveCards(client, targetNmIds, productMap);
-  const matchedFromActiveCount = countMatchedNmIds(targetNmIds, productMap);
+  const activeScan = await scanActiveCards(
+    client,
+    targetNmIds,
+    productMap,
+    activeNmIds,
+  );
+  const matchedFromActiveCount = activeNmIds.size;
 
   let trashProductsScanned = 0;
   let matchedFromTrashCount = 0;
   let trashError: IntegrationError | undefined;
   let durationMs = activeScan.durationMs;
 
-  const remainingNmIds = new Set(getUnmatchedNmIds(targetNmIds, productMap));
+  const remainingNmIds = new Set(
+    getUnmatchedNmIdsFromSets(targetNmIds, activeNmIds, trashNmIds),
+  );
 
   if (remainingNmIds.size > 0) {
-    const trashScan = await scanTrashCards(client, remainingNmIds, productMap);
+    const trashScan = await scanTrashCards(
+      client,
+      remainingNmIds,
+      productMap,
+      activeNmIds,
+      trashNmIds,
+    );
     trashProductsScanned = trashScan.scanned;
     durationMs += trashScan.durationMs;
     trashError = trashScan.error;
 
-    matchedFromTrashCount =
-      countMatchedNmIds(targetNmIds, productMap) - matchedFromActiveCount;
+    matchedFromTrashCount = trashNmIds.size;
   }
 
   return {
     map: productMap,
+    activeNmIds,
+    trashNmIds,
     activeProductsScanned: activeScan.scanned,
     trashProductsScanned,
     matchedFromActiveCount,
     matchedFromTrashCount,
-    unmatchedNmIds: getUnmatchedNmIds(targetNmIds, productMap),
+    unmatchedNmIds: getUnmatchedNmIdsFromSets(
+      targetNmIds,
+      activeNmIds,
+      trashNmIds,
+    ),
     durationMs,
     error: activeScan.error,
     trashError,
@@ -457,6 +523,7 @@ async function fetchProductsForNmIds(
 function mergeInventoryRow(
   stock: NonNullable<Awaited<ReturnType<typeof fetchWbStocks>>["stocks"]>[number],
   card: WbProductCard | undefined,
+  productSource: WbProductSource,
 ): WbInventoryItem {
   return {
     nmID: stock.nmID,
@@ -470,14 +537,12 @@ function mergeInventoryRow(
     inWayToClient: stock.inWayToClient,
     inWayFromClient: stock.inWayFromClient,
     stockLevel: "nmID",
+    productSource,
   };
 }
 
-export async function fetchWbInventory(
-  limit = MAX_INVENTORY_ROWS,
-): Promise<WbInventoryResult> {
-  const safeLimit = Math.min(Math.max(1, limit), MAX_INVENTORY_ROWS);
-  const stocksResult = await fetchWbStocks(safeLimit);
+export async function fetchWbInventory(): Promise<WbInventoryResult> {
+  const stocksResult = await fetchWbStocks();
 
   if (stocksResult.status === "not_configured") {
     return buildResult({
@@ -506,7 +571,7 @@ export async function fetchWbInventory(
     });
   }
 
-  const stocks = (stocksResult.stocks ?? []).slice(0, safeLimit);
+  const stocks = stocksResult.stocks ?? [];
 
   if (stocks.length === 0) {
     return buildResult({
@@ -524,6 +589,10 @@ export async function fetchWbInventory(
       matchedFromTrashCount: 0,
       unmatchedNmIds: [],
       productsScanned: 0,
+      totalStockRows: stocksResult.totalStockRows ?? 0,
+      totalUniqueNmIds: stocksResult.totalUniqueNmIds ?? 0,
+      pagesLoaded: stocksResult.pagesLoaded ?? 0,
+      isComplete: stocksResult.isComplete ?? false,
       message: "Нет данных об остатках для объединения",
       error: {
         code: "EMPTY_RESPONSE",
@@ -546,13 +615,21 @@ export async function fetchWbInventory(
     partialErrors.products = productScan.trashError;
   }
 
-  const matchedNmIdsCount = countMatchedNmIds(targetNmIds, productScan.map);
+  const matchedNmIdsCount =
+    productScan.activeNmIds.size + productScan.trashNmIds.size;
   const stockNmIdsCount = targetNmIds.size;
   const unmatchedNmIdsCount = productScan.unmatchedNmIds.length;
 
-  const items = stocks.map((stock) =>
-    mergeInventoryRow(stock, productScan.map.get(stock.nmID)),
-  );
+  const items = stocks.map((stock) => {
+    const card = productScan.map.get(stock.nmID);
+    const productSource = resolveProductSource(
+      stock.nmID,
+      productScan.activeNmIds,
+      productScan.trashNmIds,
+    );
+
+    return mergeInventoryRow(stock, card, productSource);
+  });
 
   const productsWarning =
     productScan.error || productScan.trashError || unmatchedNmIdsCount > 0
@@ -575,6 +652,10 @@ export async function fetchWbInventory(
     matchedFromActiveCount: productScan.matchedFromActiveCount,
     matchedFromTrashCount: productScan.matchedFromTrashCount,
     unmatchedNmIds: productScan.unmatchedNmIds,
+    totalStockRows: stocksResult.totalStockRows ?? 0,
+    totalUniqueNmIds: stocksResult.totalUniqueNmIds ?? stockNmIdsCount,
+    pagesLoaded: stocksResult.pagesLoaded ?? 0,
+    isComplete: stocksResult.isComplete ?? false,
     message: `Объединено записей: ${items.length}.${productsWarning}`,
     partialErrors:
       Object.keys(partialErrors).length > 0 ? partialErrors : undefined,

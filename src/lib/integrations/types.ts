@@ -79,7 +79,13 @@ export type WbStocksResult = {
   error?: IntegrationError;
   missingFields?: string[];
   stocks?: WbStockItem[];
+  totalStockRows?: number;
+  totalUniqueNmIds?: number;
+  pagesLoaded?: number;
+  isComplete?: boolean;
 };
+
+export type WbProductSource = "active" | "trash" | "unknown";
 
 export type WbInventoryItem = {
   nmID: number;
@@ -93,6 +99,7 @@ export type WbInventoryItem = {
   inWayToClient: number;
   inWayFromClient: number;
   stockLevel: "nmID";
+  productSource: WbProductSource;
 };
 
 export type WbInventoryResult = {
@@ -119,5 +126,9 @@ export type WbInventoryResult = {
     products?: IntegrationError;
     stocks?: IntegrationError;
   };
+  totalStockRows?: number;
+  totalUniqueNmIds?: number;
+  pagesLoaded?: number;
+  isComplete?: boolean;
   items?: WbInventoryItem[];
 };

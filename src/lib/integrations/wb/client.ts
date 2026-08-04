@@ -97,6 +97,7 @@ export class WbClient {
   async getWbWarehouseStocksReport(
     limit = 100,
     offset = 0,
+    timeoutMs = 15_000,
   ): Promise<WbRequestResult> {
     return safeFetch(
       `${WB_API_HOSTS.sellerAnalytics}/api/analytics/v1/stocks-report/wb-warehouses`,
@@ -110,6 +111,7 @@ export class WbClient {
           limit,
           offset,
         }),
+        timeoutMs,
       },
     );
   }
