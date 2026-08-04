@@ -46,6 +46,10 @@ export const navItems: NavItem[] = [
             href: "/warehouse/marketplaces/wildberries",
             label: "Wildberries",
           },
+          {
+            href: "/warehouse/marketplaces/ozon",
+            label: "Ozon",
+          },
         ],
       },
     ],

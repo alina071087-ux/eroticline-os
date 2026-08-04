@@ -2,6 +2,7 @@ export type IntegrationStatus = "ok" | "error" | "not_configured";
 
 export type IntegrationErrorCode =
   | "MISSING_TOKEN"
+  | "MISSING_CREDENTIALS"
   | "INVALID_TOKEN"
   | "FORBIDDEN"
   | "RATE_LIMIT"
