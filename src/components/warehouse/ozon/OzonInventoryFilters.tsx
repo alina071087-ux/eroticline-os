@@ -4,11 +4,13 @@ import type {
   OzonInventoryFilters,
   OzonInventoryGrouping,
 } from "@/lib/types/ozonInventoryPage";
+import { getStockTypeLabel } from "@/lib/data/ozonInventoryPage";
 
 type OzonInventoryFiltersBarProps = {
   filters: OzonInventoryFilters;
   warehouses: string[];
   statuses: string[];
+  stockTypes: string[];
   grouping: OzonInventoryGrouping;
   onFiltersChange: (filters: OzonInventoryFilters) => void;
   onGroupingChange: (grouping: OzonInventoryGrouping) => void;
@@ -43,6 +45,7 @@ export function OzonInventoryFiltersBar({
   filters,
   warehouses,
   statuses,
+  stockTypes,
   grouping,
   onFiltersChange,
   onGroupingChange,
@@ -56,8 +59,8 @@ export function OzonInventoryFiltersBar({
 
   return (
     <section className="rounded-2xl border border-white/[0.06] bg-[#111113] p-4 shadow-[0_1px_2px_rgba(0,0,0,0.35),0_8px_24px_rgba(0,0,0,0.2)]">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <label className="flex flex-col gap-1.5 lg:col-span-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-6">
+        <label className="flex flex-col gap-1.5 sm:col-span-2 xl:col-span-2">
           <span className="text-xs font-medium text-zinc-500">
             Поиск по артикулу, названию, Product ID или штрихкоду
           </span>
@@ -69,6 +72,19 @@ export function OzonInventoryFiltersBar({
             className="rounded-lg border border-white/[0.08] bg-[#111113] px-3 py-2 text-sm text-zinc-200 outline-none transition-colors placeholder:text-zinc-600 focus:border-violet-500/40 focus:ring-1 focus:ring-violet-500/20"
           />
         </label>
+
+        <SelectField
+          label="Схема хранения"
+          value={filters.stockType}
+          onChange={(value) => update("stockType", value)}
+        >
+          <option value="all">Все схемы</option>
+          {stockTypes.map((stockType) => (
+            <option key={stockType} value={stockType}>
+              {getStockTypeLabel(stockType)}
+            </option>
+          ))}
+        </SelectField>
 
         <SelectField
           label="Склад Ozon"

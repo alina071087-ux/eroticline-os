@@ -59,16 +59,51 @@ export function getMatchedLabel(matched: boolean): string {
   return matched ? "Сопоставлен" : "Не сопоставлен";
 }
 
+export function getStockTypeLabel(stockType: string): string {
+  switch (stockType.toLowerCase()) {
+    case "fbo":
+      return "FBO — склады Ozon";
+    case "fbs":
+      return "FBS — наш склад";
+    default:
+      return stockType;
+  }
+}
+
+export function getStockTypeMetricLabel(stockType: string): string {
+  switch (stockType.toLowerCase()) {
+    case "fbo":
+      return "На складах Ozon (FBO)";
+    case "fbs":
+      return "На нашем складе (FBS)";
+    default:
+      return `Доступно (${stockType})`;
+  }
+}
+
+export function getAvailableForStockType(
+  totalsByType: OzonInventoryResult["totals"],
+  stockType: string,
+): number {
+  return totalsByType?.totalsByType?.[stockType]?.available ?? 0;
+}
+
 export function buildInventoryMetrics(
   result: OzonInventoryResult,
 ): OzonInventoryPageMetrics {
+  const totalsByType = result.totals?.totalsByType ?? {};
+
   return {
     totalPresent: result.totals?.present ?? 0,
+    fboAvailable: getAvailableForStockType(result.totals, "fbo"),
+    fbsAvailable: getAvailableForStockType(result.totals, "fbs"),
     totalReserved: result.totals?.reserved ?? 0,
     totalAvailable: result.totals?.available ?? 0,
     totalUniqueProducts: result.totalUniqueProducts ?? 0,
     totalInventoryRows: result.totalInventoryRows ?? 0,
     matchedProductsCount: result.matchedProductsCount ?? 0,
+    stockTypes: result.stockTypes ?? Object.keys(totalsByType),
+    totalsByType,
   };
 }
 
@@ -90,6 +125,7 @@ export function groupInventoryItems(
         ...item,
         warehouseName: undefined,
         warehouseId: undefined,
+        stockType: "all",
       });
       continue;
     }
@@ -118,6 +154,10 @@ export function filterInventoryItems(
     }
 
     if (filters.onlyUnmatched && item.matched) {
+      return false;
+    }
+
+    if (filters.stockType !== "all" && item.stockType !== filters.stockType) {
       return false;
     }
 
@@ -209,17 +249,24 @@ export function toTableRows(
   return items.map((item) => {
     const warehouseLabel =
       grouping === "product" ? "Все склады" : getWarehouseLabel(item);
+    const stockType =
+      grouping === "product" && item.stockType === "all"
+        ? "all"
+        : item.stockType;
 
     return {
       id:
         grouping === "product"
           ? `product-${item.productId}`
-          : `warehouse-${item.productId}-${warehouseLabel}`,
+          : `warehouse-${item.productId}-${item.stockType}-${warehouseLabel}`,
       offerId: item.offerId || "—",
       displayName: getDisplayName(item),
       productId: item.productId,
       barcode: getDisplayBarcode(item),
       warehouseLabel,
+      stockType,
+      stockTypeLabel:
+        stockType === "all" ? "Все схемы" : getStockTypeLabel(stockType),
       present: item.present,
       reserved: item.reserved,
       available: item.available,
@@ -242,6 +289,12 @@ export function getStatusOptions(items: OzonInventoryItem[]): string[] {
       items.map((item) => item.productStatus?.trim() || "Без статуса"),
     ),
   ].sort((left, right) => left.localeCompare(right, "ru"));
+}
+
+export function getStockTypeOptions(items: OzonInventoryItem[]): string[] {
+  return [...new Set(items.map((item) => item.stockType))]
+    .filter((stockType) => stockType !== "all")
+    .sort((left, right) => left.localeCompare(right, "ru"));
 }
 
 export function getSafeErrorMessage(result: OzonInventoryResult): string {

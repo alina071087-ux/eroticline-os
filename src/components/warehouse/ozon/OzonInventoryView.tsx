@@ -7,6 +7,7 @@ import {
   formatFetchedAt,
   getSafeErrorMessage,
   getStatusOptions,
+  getStockTypeOptions,
   getWarehouseOptions,
   groupInventoryItems,
   sortInventoryItems,
@@ -36,6 +37,7 @@ const defaultFilters: OzonInventoryFilters = {
   search: "",
   warehouse: "all",
   status: "all",
+  stockType: "all",
   onlyWithAvailable: false,
   onlyUnmatched: false,
 };
@@ -152,6 +154,11 @@ export function OzonInventoryView() {
 
   const statuses = useMemo(() => getStatusOptions(allItems), [allItems]);
 
+  const stockTypes = useMemo(
+    () => getStockTypeOptions(allItems),
+    [allItems],
+  );
+
   const tableRows = useMemo(() => {
     const filtered = filterInventoryItems(allItems, filters);
     const grouped = groupInventoryItems(filtered, grouping);
@@ -215,6 +222,7 @@ export function OzonInventoryView() {
               filters={filters}
               warehouses={warehouses}
               statuses={statuses}
+              stockTypes={stockTypes}
               grouping={grouping}
               onFiltersChange={setFilters}
               onGroupingChange={setGrouping}

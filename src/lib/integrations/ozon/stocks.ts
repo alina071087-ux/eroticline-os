@@ -14,6 +14,11 @@ import {
   readProductId,
   readString,
 } from "@/lib/integrations/ozon/helpers";
+import {
+  auditStockTypes,
+  buildTotalsByType,
+  normalizeStockType,
+} from "@/lib/integrations/ozon/stock-audit";
 import type {
   OzonStockItem,
   OzonStocksResult,
@@ -30,6 +35,15 @@ function buildResult(
   };
 }
 
+function emptyTotals(): OzonStockTotals {
+  return {
+    present: 0,
+    reserved: 0,
+    available: 0,
+    totalsByType: {},
+  };
+}
+
 function notConfiguredResult(): OzonStocksResult {
   return buildResult({
     status: "not_configured",
@@ -39,7 +53,8 @@ function notConfiguredResult(): OzonStocksResult {
     totalUniqueProducts: 0,
     pagesLoaded: 0,
     isComplete: false,
-    totals: { present: 0, reserved: 0, available: 0 },
+    stockTypes: [],
+    totals: emptyTotals(),
     error: {
       code: "MISSING_CREDENTIALS",
       message:
@@ -49,19 +64,17 @@ function notConfiguredResult(): OzonStocksResult {
 }
 
 function buildStockKey(item: OzonStockItem): string {
-  const warehousePart = item.warehouseId ?? item.type ?? "none";
-  return `${item.productId}:${item.offerId}:${warehousePart}`;
+  const warehousePart = item.warehouseId ?? item.warehouseName ?? "none";
+  return `${item.productId}:${item.offerId}:${item.stockType}:${warehousePart}`;
 }
 
 function sumTotals(rows: OzonStockItem[]): OzonStockTotals {
-  return rows.reduce(
-    (totals, row) => ({
-      present: totals.present + row.present,
-      reserved: totals.reserved + row.reserved,
-      available: totals.available + row.available,
-    }),
-    { present: 0, reserved: 0, available: 0 },
-  );
+  return {
+    present: rows.reduce((sum, row) => sum + row.present, 0),
+    reserved: rows.reduce((sum, row) => sum + row.reserved, 0),
+    available: rows.reduce((sum, row) => sum + row.available, 0),
+    totalsByType: buildTotalsByType(rows),
+  };
 }
 
 function normalizeInfoStocksRows(raw: unknown): OzonStockItem[] {
@@ -88,14 +101,12 @@ function normalizeInfoStocksRows(raw: unknown): OzonStockItem[] {
     const stock = stockRaw as Record<string, unknown>;
     const present = readNumber(stock.present);
     const reserved = readNumber(stock.reserved);
+    const stockType = normalizeStockType(stock.type);
     const warehouseIds = Array.isArray(stock.warehouse_ids)
       ? stock.warehouse_ids
           .map((value) => readProductId(value))
           .filter((value): value is number => value !== null)
       : [];
-
-    const type = readString(stock.type) || undefined;
-    const shipmentType = readString(stock.shipment_type) || undefined;
 
     if (warehouseIds.length === 0) {
       rows.push({
@@ -104,7 +115,7 @@ function normalizeInfoStocksRows(raw: unknown): OzonStockItem[] {
         present,
         reserved,
         available: computeAvailable(present, reserved),
-        type: type ?? shipmentType,
+        stockType,
       });
       continue;
     }
@@ -117,7 +128,7 @@ function normalizeInfoStocksRows(raw: unknown): OzonStockItem[] {
         present,
         reserved,
         available: computeAvailable(present, reserved),
-        type: type ?? shipmentType,
+        stockType,
       });
     }
   }
@@ -128,17 +139,14 @@ function normalizeInfoStocksRows(raw: unknown): OzonStockItem[] {
 function extractInfoStocksPage(data: unknown): {
   items: unknown[];
   cursor?: string;
-  total?: number;
 } {
   const result = extractResult(data);
   const items = Array.isArray(result?.items) ? result.items : [];
   const cursor = readString(result?.cursor);
-  const total = readNumber(result?.total);
 
   return {
     items,
     cursor: cursor || undefined,
-    total: total > 0 ? total : undefined,
   };
 }
 
@@ -219,6 +227,9 @@ export async function fetchOzonStocks(): Promise<OzonStocksResult> {
     cursor = page.cursor;
   }
 
+  const typeAudit = auditStockTypes(stocks);
+  const totals = stocks.length > 0 ? sumTotals(stocks) : emptyTotals();
+
   if (stocks.length === 0) {
     if (lastError) {
       return buildResult({
@@ -230,7 +241,8 @@ export async function fetchOzonStocks(): Promise<OzonStocksResult> {
         totalUniqueProducts: 0,
         pagesLoaded,
         isComplete: false,
-        totals: { present: 0, reserved: 0, available: 0 },
+        stockTypes: [],
+        totals: emptyTotals(),
         message: lastError.message,
         error: lastError,
       });
@@ -245,14 +257,14 @@ export async function fetchOzonStocks(): Promise<OzonStocksResult> {
       totalUniqueProducts: 0,
       pagesLoaded,
       isComplete: true,
-      totals: { present: 0, reserved: 0, available: 0 },
+      stockTypes: [],
+      totals: emptyTotals(),
       message: "Список остатков Ozon пуст",
       stocks: [],
     });
   }
 
   const totalUniqueProducts = new Set(stocks.map((row) => row.productId)).size;
-  const totals = sumTotals(stocks);
   const isComplete = !stoppedEarly;
 
   return buildResult({
@@ -264,10 +276,11 @@ export async function fetchOzonStocks(): Promise<OzonStocksResult> {
     totalUniqueProducts,
     pagesLoaded,
     isComplete,
+    stockTypes: typeAudit.types,
     totals,
     message: isComplete
-      ? `Получено строк остатков: ${stocks.length}`
-      : `Получена часть остатков: ${stocks.length}`,
+      ? `Получено строк остатков: ${stocks.length}. Типы: ${typeAudit.types.join(", ") || "—"}.`
+      : `Получена часть остатков: ${stocks.length}. Типы: ${typeAudit.types.join(", ") || "—"}.`,
     stocks,
   });
 }

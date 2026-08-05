@@ -1,16 +1,19 @@
 "use client";
 
 import {
-  Boxes,
   CheckCircle2,
   Layers,
   Lock,
   Package,
   ShoppingBag,
+  Warehouse,
   type LucideIcon,
 } from "lucide-react";
 import type { OzonInventoryPageMetrics } from "@/lib/types/ozonInventoryPage";
-import { formatInventoryNumber } from "@/lib/data/ozonInventoryPage";
+import {
+  formatInventoryNumber,
+  getStockTypeMetricLabel,
+} from "@/lib/data/ozonInventoryPage";
 
 type MetricCardProps = {
   title: string;
@@ -55,52 +58,79 @@ type OzonInventoryMetricsProps = {
 
 export function OzonInventoryMetrics({ metrics }: OzonInventoryMetricsProps) {
   const matchedRatio = `${metrics.matchedProductsCount} / ${metrics.totalUniqueProducts}`;
+  const extraTypes = metrics.stockTypes.filter(
+    (stockType) => !["fbo", "fbs"].includes(stockType.toLowerCase()),
+  );
 
   return (
-    <section className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
-      <MetricCard
-        title="Всего на складах"
-        value={formatInventoryNumber(metrics.totalPresent)}
-        icon={Package}
-        accent="text-emerald-400"
-        bg="bg-emerald-500/15"
-      />
-      <MetricCard
-        title="В резерве"
-        value={formatInventoryNumber(metrics.totalReserved)}
-        icon={Lock}
-        accent="text-amber-400"
-        bg="bg-amber-500/15"
-      />
-      <MetricCard
-        title="Доступно к продаже"
-        value={formatInventoryNumber(metrics.totalAvailable)}
-        icon={ShoppingBag}
-        accent="text-blue-400"
-        bg="bg-blue-500/15"
-      />
-      <MetricCard
-        title="Товаров с остатками"
-        value={formatInventoryNumber(metrics.totalUniqueProducts)}
-        icon={Boxes}
-        accent="text-violet-400"
-        bg="bg-violet-500/15"
-      />
-      <MetricCard
-        title="Строк остатков"
-        value={formatInventoryNumber(metrics.totalInventoryRows)}
-        icon={Layers}
-        accent="text-cyan-400"
-        bg="bg-cyan-500/15"
-      />
-      <MetricCard
-        title="Сопоставлено"
-        value={matchedRatio}
-        subtitle="matched / товаров"
-        icon={CheckCircle2}
-        accent="text-indigo-400"
-        bg="bg-indigo-500/15"
-      />
-    </section>
+    <div className="space-y-3">
+      <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <MetricCard
+          title="Учтено в остатках Ozon"
+          value={formatInventoryNumber(metrics.totalPresent)}
+          icon={Warehouse}
+          accent="text-emerald-400"
+          bg="bg-emerald-500/15"
+        />
+        <MetricCard
+          title="В резерве"
+          value={formatInventoryNumber(metrics.totalReserved)}
+          icon={Lock}
+          accent="text-amber-400"
+          bg="bg-amber-500/15"
+        />
+        <MetricCard
+          title="Расчётный остаток API"
+          value={formatInventoryNumber(metrics.totalAvailable)}
+          subtitle="present − reserved"
+          icon={ShoppingBag}
+          accent="text-blue-400"
+          bg="bg-blue-500/15"
+        />
+      </section>
+
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+        <MetricCard
+          title="Товаров с остатками"
+          value={formatInventoryNumber(metrics.totalUniqueProducts)}
+          icon={Package}
+          accent="text-cyan-400"
+          bg="bg-cyan-500/15"
+        />
+        <MetricCard
+          title="Строк остатков"
+          value={formatInventoryNumber(metrics.totalInventoryRows)}
+          icon={Layers}
+          accent="text-indigo-400"
+          bg="bg-indigo-500/15"
+        />
+        <MetricCard
+          title="Сопоставлено"
+          value={matchedRatio}
+          subtitle="matched / товаров"
+          icon={CheckCircle2}
+          accent="text-emerald-300"
+          bg="bg-emerald-500/10"
+        />
+      </section>
+
+      {extraTypes.length > 0 && (
+        <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {extraTypes.map((stockType) => (
+            <MetricCard
+              key={stockType}
+              title={getStockTypeMetricLabel(stockType)}
+              value={formatInventoryNumber(
+                metrics.totalsByType[stockType]?.available ?? 0,
+              )}
+              subtitle={`тип ${stockType}`}
+              icon={Package}
+              accent="text-zinc-300"
+              bg="bg-zinc-500/15"
+            />
+          ))}
+        </section>
+      )}
+    </div>
   );
 }

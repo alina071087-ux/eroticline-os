@@ -96,6 +96,7 @@ export function OzonInventoryTable({
               <th className={thClass}>Название</th>
               <th className={thClass}>Product ID</th>
               <th className={thClass}>Штрихкод</th>
+              <th className={thClass}>Схема</th>
               <th className={thClass}>
                 {grouping === "product" ? (
                   "Склад Ozon"
@@ -111,7 +112,7 @@ export function OzonInventoryTable({
               </th>
               <th className={`${thClass} text-right`}>
                 <SortButton
-                  label="Всего"
+                  label="Учтено Ozon"
                   column="present"
                   sortKey={sortKey}
                   sortDirection={sortDirection}
@@ -131,7 +132,7 @@ export function OzonInventoryTable({
               </th>
               <th className={`${thClass} text-right`}>
                 <SortButton
-                  label="Доступно"
+                  label="Расчётный остаток"
                   column="available"
                   sortKey={sortKey}
                   sortDirection={sortDirection}
@@ -157,6 +158,7 @@ export function OzonInventoryTable({
                 </td>
                 <td className={tdClass}>{row.productId}</td>
                 <td className={tdClass}>{row.barcode ?? "—"}</td>
+                <td className={tdClass}>{row.stockTypeLabel}</td>
                 <td className={tdClass}>{row.warehouseLabel}</td>
                 <td className={`${tdClass} text-right font-medium text-zinc-100`}>
                   {formatInventoryNumber(row.present)}

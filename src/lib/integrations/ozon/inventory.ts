@@ -8,6 +8,7 @@ import type {
   OzonProduct,
   OzonStockItem,
   OzonStockTotals,
+  OzonStockTypeTotals,
 } from "@/lib/integrations/ozon/types";
 
 function buildResult(
@@ -72,20 +73,44 @@ function mergeInventoryRow(
     present: stock.present,
     reserved: stock.reserved,
     available: stock.available,
+    stockType: stock.stockType,
     productStatus: product?.status,
     matched: Boolean(product),
   };
 }
 
+function emptyTotals(): OzonStockTotals {
+  return {
+    present: 0,
+    reserved: 0,
+    available: 0,
+    totalsByType: {},
+  };
+}
+
 function sumTotals(rows: OzonInventoryItem[]): OzonStockTotals {
-  return rows.reduce(
-    (totals, row) => ({
-      present: totals.present + row.present,
-      reserved: totals.reserved + row.reserved,
-      available: totals.available + row.available,
-    }),
-    { present: 0, reserved: 0, available: 0 },
-  );
+  return {
+    present: rows.reduce((sum, row) => sum + row.present, 0),
+    reserved: rows.reduce((sum, row) => sum + row.reserved, 0),
+    available: rows.reduce((sum, row) => sum + row.available, 0),
+    totalsByType: rows.reduce<Record<string, OzonStockTypeTotals>>(
+      (acc, row) => {
+        const current = acc[row.stockType] ?? {
+          rows: 0,
+          present: 0,
+          reserved: 0,
+          available: 0,
+        };
+        current.rows += 1;
+        current.present += row.present;
+        current.reserved += row.reserved;
+        current.available += row.available;
+        acc[row.stockType] = current;
+        return acc;
+      },
+      {},
+    ),
+  };
 }
 
 export async function fetchOzonInventory(): Promise<OzonInventoryResult> {
@@ -152,7 +177,7 @@ export async function fetchOzonInventory(): Promise<OzonInventoryResult> {
       pagesLoaded:
         (productsResult.pagesLoaded ?? 0) + (stocksResult.pagesLoaded ?? 0),
       isComplete: false,
-      totals: { present: 0, reserved: 0, available: 0 },
+      totals: emptyTotals(),
       message: "Нет данных об остатках для объединения",
       error: {
         code: "EMPTY_RESPONSE",
@@ -185,7 +210,7 @@ export async function fetchOzonInventory(): Promise<OzonInventoryResult> {
 
   const isComplete =
     (productsResult.isComplete ?? false) && (stocksResult.isComplete ?? false);
-  const totals = sumTotals(items);
+  const totals = stocksResult.totals ?? sumTotals(items);
 
   return buildResult({
     status: "ok",
@@ -199,6 +224,7 @@ export async function fetchOzonInventory(): Promise<OzonInventoryResult> {
     pagesLoaded:
       (productsResult.pagesLoaded ?? 0) + (stocksResult.pagesLoaded ?? 0),
     isComplete,
+    stockTypes: stocksResult.stockTypes ?? [],
     totals,
     message: `Объединено записей: ${items.length}. Сопоставлено товаров: ${matchedProductIds.size}/${new Set(items.map((item) => item.productId)).size}.`,
     partialErrors:

@@ -2,6 +2,7 @@ import type {
   OzonInventoryItem,
   OzonInventoryResult,
 } from "@/lib/integrations/ozon/types";
+import type { OzonStockTypeTotals } from "@/lib/integrations/ozon/types";
 
 export type OzonInventoryGrouping = "warehouse" | "product";
 
@@ -18,6 +19,7 @@ export type OzonInventoryFilters = {
   search: string;
   warehouse: string;
   status: string;
+  stockType: string;
   onlyWithAvailable: boolean;
   onlyUnmatched: boolean;
 };
@@ -29,6 +31,8 @@ export type OzonInventoryTableRow = {
   productId: number;
   barcode: string | null;
   warehouseLabel: string;
+  stockType: string;
+  stockTypeLabel: string;
   present: number;
   reserved: number;
   available: number;
@@ -39,11 +43,15 @@ export type OzonInventoryTableRow = {
 
 export type OzonInventoryPageMetrics = {
   totalPresent: number;
+  fboAvailable: number;
+  fbsAvailable: number;
   totalReserved: number;
   totalAvailable: number;
   totalUniqueProducts: number;
   totalInventoryRows: number;
   matchedProductsCount: number;
+  stockTypes: string[];
+  totalsByType: Record<string, OzonStockTypeTotals>;
 };
 
 export type { OzonInventoryItem, OzonInventoryResult };

@@ -28,6 +28,13 @@ export type OzonProductsResult = {
   products?: OzonProduct[];
 };
 
+export type OzonStockTypeTotals = {
+  rows: number;
+  present: number;
+  reserved: number;
+  available: number;
+};
+
 export type OzonStockItem = {
   productId: number;
   offerId: string;
@@ -36,13 +43,14 @@ export type OzonStockItem = {
   present: number;
   reserved: number;
   available: number;
-  type?: string;
+  stockType: string;
 };
 
 export type OzonStockTotals = {
   present: number;
   reserved: number;
   available: number;
+  totalsByType: Record<string, OzonStockTypeTotals>;
 };
 
 export type OzonStocksResult = {
@@ -58,6 +66,7 @@ export type OzonStocksResult = {
   totalUniqueProducts?: number;
   pagesLoaded?: number;
   isComplete?: boolean;
+  stockTypes?: string[];
   totals?: OzonStockTotals;
   stocks?: OzonStockItem[];
 };
@@ -73,6 +82,7 @@ export type OzonInventoryItem = {
   present: number;
   reserved: number;
   available: number;
+  stockType: string;
   productStatus?: string;
   matched: boolean;
 };
@@ -92,6 +102,7 @@ export type OzonInventoryResult = {
   unmatchedProductsCount?: number;
   pagesLoaded?: number;
   isComplete?: boolean;
+  stockTypes?: string[];
   totals?: OzonStockTotals;
   partialErrors?: {
     products?: IntegrationError;
