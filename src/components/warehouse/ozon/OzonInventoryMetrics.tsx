@@ -64,10 +64,21 @@ export function OzonInventoryMetrics({ metrics }: OzonInventoryMetricsProps) {
 
   return (
     <div className="space-y-3">
+      <div className="px-1">
+        <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">
+          Сводка Product Info Stocks
+        </p>
+        <p className="mt-1 text-xs text-zinc-500">
+          Суммы по полям API Ozon. Не совпадают с колонкой «Доступно к продаже» в
+          кабинете.
+        </p>
+      </div>
+
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <MetricCard
           title="Учтено в остатках Ozon"
           value={formatInventoryNumber(metrics.totalPresent)}
+          subtitle="present · все единицы, учтённые API"
           icon={Warehouse}
           accent="text-emerald-400"
           bg="bg-emerald-500/15"
@@ -75,6 +86,7 @@ export function OzonInventoryMetrics({ metrics }: OzonInventoryMetricsProps) {
         <MetricCard
           title="В резерве"
           value={formatInventoryNumber(metrics.totalReserved)}
+          subtitle="reserved · зарезервировано под заказы"
           icon={Lock}
           accent="text-amber-400"
           bg="bg-amber-500/15"
@@ -82,12 +94,18 @@ export function OzonInventoryMetrics({ metrics }: OzonInventoryMetricsProps) {
         <MetricCard
           title="Расчётный остаток API"
           value={formatInventoryNumber(metrics.totalAvailable)}
-          subtitle="present − reserved"
+          subtitle="present − reserved · шире, чем «Доступно к продаже»"
           icon={ShoppingBag}
           accent="text-blue-400"
           bg="bg-blue-500/15"
         />
       </section>
+
+      <div className="px-1 pt-1">
+        <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">
+          Объём выборки
+        </p>
+      </div>
 
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-3">
         <MetricCard
@@ -107,7 +125,7 @@ export function OzonInventoryMetrics({ metrics }: OzonInventoryMetricsProps) {
         <MetricCard
           title="Сопоставлено"
           value={matchedRatio}
-          subtitle="matched / товаров"
+          subtitle="товаров сопоставлено с каталогом"
           icon={CheckCircle2}
           accent="text-emerald-300"
           bg="bg-emerald-500/10"

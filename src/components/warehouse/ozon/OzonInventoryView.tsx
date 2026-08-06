@@ -189,13 +189,13 @@ export function OzonInventoryView() {
               Остатки Ozon
             </h2>
             <p className="mt-1.5 text-sm text-zinc-400">
-              Реальные остатки по складам маркетплейса на уровне товара
+              Технические остатки Product Info Stocks на уровне товара и склада
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full border border-blue-500/20 bg-blue-500/10 px-2.5 py-1 text-xs font-medium text-blue-300">
-              Реальные данные Ozon
+              Product Info Stocks API
             </span>
             {result?.fetchedAt && (
               <span className="text-xs text-zinc-500">

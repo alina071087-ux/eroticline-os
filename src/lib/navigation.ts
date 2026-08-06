@@ -43,6 +43,10 @@ export const navItems: NavItem[] = [
         label: "Остатки маркетплейсов",
         children: [
           {
+            href: "/warehouse/marketplaces",
+            label: "Все площадки",
+          },
+          {
             href: "/warehouse/marketplaces/wildberries",
             label: "Wildberries",
           },

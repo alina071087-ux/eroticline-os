@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import { MarketplaceInventoryView } from "@/components/warehouse/marketplaces/MarketplaceInventoryView";
 
 export default function MarketplaceInventoryPage() {
-  redirect("/warehouse/marketplaces/wildberries");
+  return <MarketplaceInventoryView />;
 }
