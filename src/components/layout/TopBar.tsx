@@ -7,7 +7,9 @@ export function TopBar() {
   const pathname = usePathname();
   const pageTitle = getPageTitle(pathname);
   const lastUpdated = getLastUpdated();
-  const isRealIntegrationPage = pathname.startsWith("/warehouse/marketplaces");
+  const isRealIntegrationPage =
+    pathname.startsWith("/warehouse/marketplaces") ||
+    pathname.startsWith("/warehouse/sku-directory");
 
   return (
     <header className="flex h-14 shrink-0 items-center justify-between border-b border-white/[0.06] bg-[#09090b]/80 px-6 backdrop-blur-sm">
