@@ -120,6 +120,10 @@ export async function fetchOzonInventory(): Promise<OzonInventoryResult> {
   ]);
 
   const partialErrors: OzonInventoryResult["partialErrors"] = {};
+  const diagnostics = [
+    ...(productsResult.diagnostics ?? []),
+    ...(stocksResult.diagnostics ?? []),
+  ];
 
   if (productsResult.status === "not_configured") {
     return buildResult({
@@ -155,6 +159,7 @@ export async function fetchOzonInventory(): Promise<OzonInventoryResult> {
       durationMs: (productsResult.durationMs ?? 0) + (stocksResult.durationMs ?? 0),
       message: stocksResult.message ?? "Не удалось получить остатки Ozon",
       error: stocksResult.error,
+      diagnostics: diagnostics.length > 0 ? diagnostics : undefined,
       partialErrors:
         Object.keys(partialErrors).length > 0 ? partialErrors : undefined,
     });
@@ -229,6 +234,7 @@ export async function fetchOzonInventory(): Promise<OzonInventoryResult> {
     message: `Объединено записей: ${items.length}. Сопоставлено товаров: ${matchedProductIds.size}/${new Set(items.map((item) => item.productId)).size}.`,
     partialErrors:
       Object.keys(partialErrors).length > 0 ? partialErrors : undefined,
+    diagnostics: diagnostics.length > 0 ? diagnostics : undefined,
     items,
   });
 }

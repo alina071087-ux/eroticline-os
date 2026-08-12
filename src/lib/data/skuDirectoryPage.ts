@@ -75,7 +75,7 @@ export function filterReconciliationRows(
         row.parseWarnings.length > 0 ||
         row.warnings.some(
           (warning) =>
-            !warning.includes("Wildberries передаёт остатки на уровне nmID"),
+            !warning.includes("Остаток Wildberries доступен на уровне nmID"),
         );
       if (!hasErrors) {
         return false;
@@ -181,4 +181,59 @@ export function downloadSkuAuditCsv(rows: OneCReconciliationRow[], fileName: str
 
 export function getSafeErrorMessage(message?: string): string {
   return message ?? "Не удалось выполнить проверку файла 1С.";
+}
+
+const CHANGE_TYPE_LABELS = {
+  new: "Новый",
+  update: "Обновление",
+  unchanged: "Без изменений",
+  error: "Ошибка",
+} as const;
+
+export function getChangeTypeLabel(
+  changeType: keyof typeof CHANGE_TYPE_LABELS,
+): string {
+  return CHANGE_TYPE_LABELS[changeType];
+}
+
+export function getChangeTypeStyles(
+  changeType: keyof typeof CHANGE_TYPE_LABELS,
+): string {
+  switch (changeType) {
+    case "new":
+      return "border-emerald-500/20 bg-emerald-500/10 text-emerald-300";
+    case "update":
+      return "border-cyan-500/20 bg-cyan-500/10 text-cyan-300";
+    case "unchanged":
+      return "border-zinc-500/20 bg-zinc-500/10 text-zinc-300";
+    case "error":
+    default:
+      return "border-red-500/20 bg-red-500/10 text-red-300";
+  }
+}
+
+export function formatDateTime(isoDate: string): string {
+  return new Date(isoDate).toLocaleString("ru-RU", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+export function buildSkuCatalogQuery(filters: import("@/lib/types/skuDirectoryPage").SkuCatalogFilters): string {
+  const params = new URLSearchParams();
+
+  if (filters.search.trim()) params.set("search", filters.search.trim());
+  if (filters.article.trim()) params.set("article", filters.article.trim());
+  if (filters.color.trim()) params.set("color", filters.color.trim());
+  if (filters.size.trim()) params.set("size", filters.size.trim());
+  if (filters.matchStatus !== "all") params.set("matchStatus", filters.matchStatus);
+  if (filters.platform !== "all") params.set("platform", filters.platform);
+  if (filters.onlyWithoutWb) params.set("onlyWithoutWb", "true");
+  if (filters.onlyWithoutOzon) params.set("onlyWithoutOzon", "true");
+
+  const query = params.toString();
+  return query ? `?${query}` : "";
 }

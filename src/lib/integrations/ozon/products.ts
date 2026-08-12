@@ -14,6 +14,8 @@ import {
   readProductId,
   readString,
 } from "@/lib/integrations/ozon/helpers";
+import type { OzonRequestDiagnostic } from "@/lib/integrations/ozon/diagnostics";
+import { buildOzonRequestDiagnostic } from "@/lib/integrations/ozon/diagnostics";
 import type { OzonProduct, OzonProductsResult } from "@/lib/integrations/ozon/types";
 
 type ListItem = {
@@ -232,8 +234,18 @@ export async function fetchOzonProducts(): Promise<OzonProductsResult> {
   let lastId: string | undefined;
   let stoppedEarly = false;
   let lastError: IntegrationError | undefined;
+  const diagnostics: OzonRequestDiagnostic[] = [];
 
   while (pagesLoaded < OZON_MAX_PAGES && listItems.length < OZON_MAX_PRODUCTS) {
+    const listBody: Record<string, unknown> = {
+      filter: { visibility: "ALL" },
+      limit: OZON_PRODUCT_LIST_PAGE_SIZE,
+    };
+
+    if (lastId) {
+      listBody.last_id = lastId;
+    }
+
     const response = await client.getProductList(
       OZON_PRODUCT_LIST_PAGE_SIZE,
       lastId,
@@ -243,14 +255,17 @@ export async function fetchOzonProducts(): Promise<OzonProductsResult> {
     durationMs += response.durationMs;
     lastHttpStatus = response.status || lastHttpStatus;
 
-    if (response.error) {
+    if (response.error || !response.ok) {
       lastError = mapOzonHttpError(response.status, response.error);
-      stoppedEarly = true;
-      break;
-    }
-
-    if (!response.ok) {
-      lastError = mapOzonHttpError(response.status);
+      diagnostics.push(
+        buildOzonRequestDiagnostic({
+          endpoint: "/v3/product/list",
+          httpStatus: response.status,
+          durationMs: response.durationMs,
+          requestBody: listBody,
+          responseData: response.data,
+        }),
+      );
       stoppedEarly = true;
       break;
     }
@@ -292,6 +307,7 @@ export async function fetchOzonProducts(): Promise<OzonProductsResult> {
         isComplete: false,
         message: lastError.message,
         error: lastError,
+        diagnostics,
       });
     }
 
@@ -313,19 +329,23 @@ export async function fetchOzonProducts(): Promise<OzonProductsResult> {
   let infoPagesLoaded = 0;
 
   for (const chunk of chunkArray(productIds, OZON_INFO_LIST_BATCH_SIZE)) {
+    const infoBody = { product_id: chunk };
     const response = await client.getProductInfoList(chunk);
     durationMs += response.durationMs;
     lastHttpStatus = response.status || lastHttpStatus;
     infoPagesLoaded += 1;
 
-    if (response.error) {
+    if (response.error || !response.ok) {
       lastError = mapOzonHttpError(response.status, response.error);
-      stoppedEarly = true;
-      break;
-    }
-
-    if (!response.ok) {
-      lastError = mapOzonHttpError(response.status);
+      diagnostics.push(
+        buildOzonRequestDiagnostic({
+          endpoint: "/v3/product/info/list",
+          httpStatus: response.status,
+          durationMs: response.durationMs,
+          requestBody: infoBody,
+          responseData: response.data,
+        }),
+      );
       stoppedEarly = true;
       break;
     }
@@ -348,6 +368,7 @@ export async function fetchOzonProducts(): Promise<OzonProductsResult> {
       isComplete: false,
       message: lastError?.message ?? "Не удалось получить товары Ozon",
       error: lastError,
+      diagnostics,
     });
   }
 
@@ -366,5 +387,6 @@ export async function fetchOzonProducts(): Promise<OzonProductsResult> {
       ? `Получено товаров: ${products.length}`
       : `Получена часть товаров: ${products.length}`,
     products,
+    diagnostics: diagnostics.length > 0 ? diagnostics : undefined,
   });
 }

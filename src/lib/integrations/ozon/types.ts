@@ -1,4 +1,5 @@
 import type { IntegrationError } from "@/lib/integrations/types";
+import type { OzonRequestDiagnostic } from "@/lib/integrations/ozon/diagnostics";
 
 export type OzonIntegrationStatus = "ok" | "error" | "not_configured";
 
@@ -26,6 +27,7 @@ export type OzonProductsResult = {
   pagesLoaded?: number;
   isComplete?: boolean;
   products?: OzonProduct[];
+  diagnostics?: OzonRequestDiagnostic[];
 };
 
 export type OzonStockTypeTotals = {
@@ -69,6 +71,7 @@ export type OzonStocksResult = {
   stockTypes?: string[];
   totals?: OzonStockTotals;
   stocks?: OzonStockItem[];
+  diagnostics?: OzonRequestDiagnostic[];
 };
 
 export type OzonInventoryItem = {
@@ -108,5 +111,6 @@ export type OzonInventoryResult = {
     products?: IntegrationError;
     stocks?: IntegrationError;
   };
+  diagnostics?: OzonRequestDiagnostic[];
   items?: OzonInventoryItem[];
 };

@@ -24,6 +24,8 @@ import type {
   OzonStocksResult,
   OzonStockTotals,
 } from "@/lib/integrations/ozon/types";
+import type { OzonRequestDiagnostic } from "@/lib/integrations/ozon/diagnostics";
+import { buildOzonRequestDiagnostic } from "@/lib/integrations/ozon/diagnostics";
 
 function buildResult(
   partial: Omit<OzonStocksResult, "source" | "fetchedAt">,
@@ -166,8 +168,18 @@ export async function fetchOzonStocks(): Promise<OzonStocksResult> {
   let cursor: string | undefined;
   let stoppedEarly = false;
   let lastError: IntegrationError | undefined;
+  const diagnostics: OzonRequestDiagnostic[] = [];
 
   while (pagesLoaded < OZON_MAX_PAGES && stocks.length < OZON_MAX_STOCK_ROWS) {
+    const requestBody: Record<string, unknown> = {
+      filter: { visibility: "ALL" },
+      limit: OZON_STOCKS_PAGE_SIZE,
+    };
+
+    if (cursor) {
+      requestBody.cursor = cursor;
+    }
+
     const response = await client.getProductInfoStocks(
       OZON_STOCKS_PAGE_SIZE,
       cursor,
@@ -177,14 +189,17 @@ export async function fetchOzonStocks(): Promise<OzonStocksResult> {
     durationMs += response.durationMs;
     httpStatus = response.status || httpStatus;
 
-    if (response.error) {
+    if (response.error || !response.ok) {
       lastError = mapOzonHttpError(response.status, response.error);
-      stoppedEarly = true;
-      break;
-    }
-
-    if (!response.ok) {
-      lastError = mapOzonHttpError(response.status);
+      diagnostics.push(
+        buildOzonRequestDiagnostic({
+          endpoint: "/v4/product/info/stocks",
+          httpStatus: response.status,
+          durationMs: response.durationMs,
+          requestBody,
+          responseData: response.data,
+        }),
+      );
       stoppedEarly = true;
       break;
     }
@@ -245,6 +260,7 @@ export async function fetchOzonStocks(): Promise<OzonStocksResult> {
         totals: emptyTotals(),
         message: lastError.message,
         error: lastError,
+        diagnostics,
       });
     }
 
@@ -282,5 +298,6 @@ export async function fetchOzonStocks(): Promise<OzonStocksResult> {
       ? `Получено строк остатков: ${stocks.length}. Типы: ${typeAudit.types.join(", ") || "—"}.`
       : `Получена часть остатков: ${stocks.length}. Типы: ${typeAudit.types.join(", ") || "—"}.`,
     stocks,
+    diagnostics: diagnostics.length > 0 ? diagnostics : undefined,
   });
 }

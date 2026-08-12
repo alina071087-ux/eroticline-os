@@ -97,6 +97,10 @@ export async function auditOneCSkuFile(
     partialErrors.ozonInventory = ozonResult.error;
   }
 
+  if (ozonResult.diagnostics?.length) {
+    partialErrors.ozonDiagnostics = ozonResult.diagnostics;
+  }
+
   if (!wbOk && !ozonOk) {
     return buildResult({
       status: "error",

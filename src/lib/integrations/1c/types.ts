@@ -1,4 +1,5 @@
 import type { IntegrationError } from "@/lib/integrations/types";
+import type { OzonRequestDiagnostic } from "@/lib/integrations/ozon/diagnostics";
 
 export type OneCErrorCode =
   | "MISSING_FILE"
@@ -96,6 +97,7 @@ export type OneCSkuAuditResult = {
   partialErrors?: {
     wbProducts?: IntegrationError;
     ozonInventory?: IntegrationError;
+    ozonDiagnostics?: OzonRequestDiagnostic[];
   };
 };
 
@@ -117,4 +119,4 @@ export const REQUIRED_1C_COLUMNS = [
 ] as const;
 
 export const WB_GRANULARITY_WARNING =
-  "Wildberries передаёт остатки на уровне nmID, а не размера. Справочник 1С используется для идентификации SKU по штрихкоду, но не распределяет остаток WB по размерам без отдельного источника остатков 1С.";
+  "Остаток Wildberries доступен на уровне nmID, а не размера. Штрихкод используется для идентификации SKU, но остаток WB не распределяется по размерам без данных 1С.";

@@ -3,6 +3,9 @@ import "server-only";
 import type { IntegrationError } from "@/lib/integrations/types";
 import { OzonClient } from "@/lib/integrations/ozon/client";
 import { getOzonCredentials } from "@/lib/integrations/ozon/config";
+import {
+  extractOzonErrorDetails,
+} from "@/lib/integrations/ozon/diagnostics";
 import { mapOzonHttpError } from "@/lib/integrations/ozon/errors";
 
 type OzonDiagnostics = {
@@ -69,18 +72,13 @@ function extractOzonDiagnostics(
     return httpStatus > 0 ? { httpStatus } : undefined;
   }
 
-  const record = data as Record<string, unknown>;
-  const diagnostics: OzonDiagnostics = { httpStatus };
+  const { errorCode, errorMessage } = extractOzonErrorDetails(data);
 
-  if (typeof record.code === "number" || typeof record.code === "string") {
-    diagnostics.errorCode = record.code;
-  }
-
-  if (typeof record.message === "string" && record.message.trim()) {
-    diagnostics.message = record.message.trim().slice(0, 500);
-  }
-
-  return diagnostics;
+  return {
+    httpStatus,
+    errorCode,
+    message: errorMessage,
+  };
 }
 
 export async function testOzonConnection(): Promise<OzonTestResult> {
