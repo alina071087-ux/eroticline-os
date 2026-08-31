@@ -9,9 +9,8 @@ export function WbInventoryWarning() {
           strokeWidth={1.75}
         />
         <p className="text-sm leading-relaxed text-amber-100/90">
-          Остатки Wildberries получены на уровне nmID и склада. Размер и
-          штрихкод в этом отчёте WB не передаются. Для расчёта закупок по
-          размеру данные будут объединены с 1С.
+          Остатки Wildberries получены на уровне chrtId (размер) и склада. Общий остаток
+          карточки nmID равен сумме всех её размеров.
         </p>
       </div>
     </section>

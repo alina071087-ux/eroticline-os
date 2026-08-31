@@ -16,7 +16,7 @@ const CARDS_PAGE_SIZE = 100;
 const MAX_CARDS_SCANNED = 100_000;
 
 const QUANTITY_SCOPE =
-  "quantity относится ко всему nmID на складе, а не к конкретному размеру";
+  "quantity относится к конкретному chrtId (размеру) на складе. Один nmID может содержать несколько chrtId.";
 
 type ActiveCardsCursor = {
   updatedAt?: string;
@@ -527,16 +527,18 @@ function mergeInventoryRow(
 ): WbInventoryItem {
   return {
     nmID: stock.nmID,
-    vendorCode: card?.vendorCode?.trim() ? card.vendorCode : null,
-    title: card?.title?.trim() ? card.title : null,
-    brand: card?.brand?.trim() ? card.brand : null,
-    techSize: null,
-    barcode: null,
+    chrtId: stock.chrtId,
+    warehouseId: stock.warehouseId,
+    vendorCode: stock.vendorCode ?? (card?.vendorCode?.trim() ? card.vendorCode : null),
+    title: stock.title ?? (card?.title?.trim() ? card.title : null),
+    brand: stock.brand ?? (card?.brand?.trim() ? card.brand : null),
+    techSize: stock.techSize,
+    barcode: stock.barcode,
     warehouseName: stock.warehouseName,
     quantity: stock.quantity,
     inWayToClient: stock.inWayToClient,
     inWayFromClient: stock.inWayFromClient,
-    stockLevel: "nmID",
+    stockLevel: "size",
     productSource,
   };
 }
@@ -654,6 +656,9 @@ export async function fetchWbInventory(): Promise<WbInventoryResult> {
     unmatchedNmIds: productScan.unmatchedNmIds,
     totalStockRows: stocksResult.totalStockRows ?? 0,
     totalUniqueNmIds: stocksResult.totalUniqueNmIds ?? stockNmIdsCount,
+    uniqueChrtIds: stocksResult.uniqueChrtIds ?? 0,
+    totalQuantity: stocksResult.totalQuantity ?? 0,
+    legacyTotalQuantity: stocksResult.legacyTotalQuantity ?? 0,
     pagesLoaded: stocksResult.pagesLoaded ?? 0,
     isComplete: stocksResult.isComplete ?? false,
     message: `Объединено записей: ${items.length}.${productsWarning}`,

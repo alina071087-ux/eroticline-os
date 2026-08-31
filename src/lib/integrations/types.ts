@@ -58,14 +58,19 @@ export type WbProductsResult = {
 
 export type WbStockItem = {
   nmID: number;
+  chrtId: number | null;
+  warehouseId: number | null;
   vendorCode: string | null;
   barcode: string | null;
   techSize: string | null;
+  title: string | null;
+  brand: string | null;
   warehouseName: string;
   quantity: number;
   inWayToClient: number;
   inWayFromClient: number;
   lastChangeDate: string | null;
+  stockGranularity: "size";
 };
 
 export type WbStocksResult = {
@@ -82,6 +87,12 @@ export type WbStocksResult = {
   stocks?: WbStockItem[];
   totalStockRows?: number;
   totalUniqueNmIds?: number;
+  uniqueChrtIds?: number;
+  totalQuantity?: number;
+  totalInWayToClient?: number;
+  totalInWayFromClient?: number;
+  legacyTotalQuantity?: number;
+  legacyTotalsMatch?: boolean;
   pagesLoaded?: number;
   isComplete?: boolean;
 };
@@ -90,6 +101,8 @@ export type WbProductSource = "active" | "trash" | "unknown";
 
 export type WbInventoryItem = {
   nmID: number;
+  chrtId: number | null;
+  warehouseId: number | null;
   vendorCode: string | null;
   title: string | null;
   brand: string | null;
@@ -99,7 +112,7 @@ export type WbInventoryItem = {
   quantity: number;
   inWayToClient: number;
   inWayFromClient: number;
-  stockLevel: "nmID";
+  stockLevel: "size";
   productSource: WbProductSource;
 };
 
@@ -129,6 +142,9 @@ export type WbInventoryResult = {
   };
   totalStockRows?: number;
   totalUniqueNmIds?: number;
+  uniqueChrtIds?: number;
+  totalQuantity?: number;
+  legacyTotalQuantity?: number;
   pagesLoaded?: number;
   isComplete?: boolean;
   items?: WbInventoryItem[];

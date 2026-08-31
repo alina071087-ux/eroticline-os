@@ -29,54 +29,94 @@ export function getDisplayTitle(item: WbInventoryItem): string {
 }
 
 export function buildInventoryMetrics(
-  items: WbInventoryItem[],
+  displayItems: WbInventoryItem[],
   result: Pick<
     WbInventoryResult,
-    "matchedNmIdsCount" | "stockNmIdsCount"
+    "matchedNmIdsCount" | "stockNmIdsCount" | "uniqueChrtIds" | "totalQuantity"
   >,
+  rawItems: WbInventoryItem[] = displayItems,
 ): WbInventoryPageMetrics {
-  const uniqueNmIds = new Set(items.map((item) => item.nmID));
-  const uniqueWarehouses = new Set(items.map((item) => item.warehouseName));
+  const uniqueNmIds = new Set(displayItems.map((item) => item.nmID));
+  const uniqueChrtIds = new Set(
+    displayItems
+      .map((item) => item.chrtId)
+      .filter((value): value is number => value !== null),
+  );
+  const uniqueWarehouses = new Set(
+    rawItems
+      .map((item) => item.warehouseName)
+      .filter((warehouse) => warehouse !== "Все склады"),
+  );
+
+  const aggregatedTotal = displayItems.reduce((sum, item) => sum + item.quantity, 0);
 
   return {
-    totalQuantity: items.reduce((sum, item) => sum + item.quantity, 0),
-    totalInWayToClient: items.reduce(
+    totalQuantity: aggregatedTotal,
+    totalInWayToClient: displayItems.reduce(
       (sum, item) => sum + item.inWayToClient,
       0,
     ),
-    totalInWayFromClient: items.reduce(
+    totalInWayFromClient: displayItems.reduce(
       (sum, item) => sum + item.inWayFromClient,
       0,
     ),
     uniqueNmIds: uniqueNmIds.size,
+    uniqueChrtIds: result.uniqueChrtIds ?? uniqueChrtIds.size,
     uniqueWarehouses: uniqueWarehouses.size,
     matchedNmIdsCount: result.matchedNmIdsCount ?? 0,
     stockNmIdsCount: result.stockNmIdsCount ?? 0,
+    serverTotalQuantity: result.totalQuantity ?? aggregatedTotal,
+    totalsMatch:
+      result.totalQuantity === undefined
+        ? true
+        : result.totalQuantity === aggregatedTotal,
   };
 }
 
-export function groupInventoryItems(
-  items: WbInventoryItem[],
-  grouping: WbInventoryGrouping,
-): WbInventoryItem[] {
-  if (grouping === "warehouse") {
-    return items;
+function matchesSearch(item: WbInventoryItem, search: string): boolean {
+  if (!search) {
+    return true;
   }
 
+  const title = getDisplayTitle(item).toLowerCase();
+  const vendorCode = item.vendorCode?.toLowerCase() ?? "";
+  const nmId = String(item.nmID);
+  const techSize = item.techSize?.toLowerCase() ?? "";
+  const barcode = item.barcode?.toLowerCase() ?? "";
+  const chrtId = item.chrtId !== null ? String(item.chrtId) : "";
+
+  return (
+    title.includes(search) ||
+    vendorCode.includes(search) ||
+    nmId.includes(search) ||
+    techSize.includes(search) ||
+    barcode.includes(search) ||
+    chrtId.includes(search)
+  );
+}
+
+export function aggregateInventoryByChrtId(
+  items: WbInventoryItem[],
+): WbInventoryItem[] {
   const grouped = new Map<number, WbInventoryItem>();
 
   for (const item of items) {
-    const existing = grouped.get(item.nmID);
+    if (item.chrtId === null) {
+      continue;
+    }
+
+    const existing = grouped.get(item.chrtId);
 
     if (!existing) {
-      grouped.set(item.nmID, {
+      grouped.set(item.chrtId, {
         ...item,
+        warehouseId: null,
         warehouseName: "Все склады",
       });
       continue;
     }
 
-    grouped.set(item.nmID, {
+    grouped.set(item.chrtId, {
       ...existing,
       quantity: existing.quantity + item.quantity,
       inWayToClient: existing.inWayToClient + item.inWayToClient,
@@ -87,17 +127,13 @@ export function groupInventoryItems(
   return [...grouped.values()];
 }
 
-export function filterInventoryItems(
+export function prepareInventoryDisplayItems(
   items: WbInventoryItem[],
   filters: WbInventoryFilters,
 ): WbInventoryItem[] {
   const search = filters.search.trim().toLowerCase();
 
-  return items.filter((item) => {
-    if (filters.onlyWithStock && item.quantity <= 0) {
-      return false;
-    }
-
+  const preFiltered = items.filter((item) => {
     if (filters.warehouse !== "all" && item.warehouseName !== filters.warehouse) {
       return false;
     }
@@ -106,20 +142,36 @@ export function filterInventoryItems(
       return false;
     }
 
-    if (!search) {
-      return true;
-    }
-
-    const title = getDisplayTitle(item).toLowerCase();
-    const vendorCode = item.vendorCode?.toLowerCase() ?? "";
-    const nmId = String(item.nmID);
-
-    return (
-      title.includes(search) ||
-      vendorCode.includes(search) ||
-      nmId.includes(search)
-    );
+    return matchesSearch(item, search);
   });
+
+  const display =
+    filters.warehouse === "all"
+      ? aggregateInventoryByChrtId(preFiltered)
+      : preFiltered;
+
+  if (!filters.onlyWithStock) {
+    return display;
+  }
+
+  return display.filter((item) => item.quantity > 0);
+}
+
+/** @deprecated Use prepareInventoryDisplayItems */
+export function groupInventoryItems(
+  items: WbInventoryItem[],
+  grouping: WbInventoryGrouping,
+  filters?: WbInventoryFilters,
+): WbInventoryItem[] {
+  if (filters) {
+    return prepareInventoryDisplayItems(items, filters);
+  }
+
+  if (grouping === "warehouse") {
+    return items;
+  }
+
+  return aggregateInventoryByChrtId(items);
 }
 
 function compareValues(
@@ -166,6 +218,12 @@ export function sortInventoryItems(
           right.warehouseName,
           direction,
         );
+      case "techSize":
+        return compareValues(
+          left.techSize ?? "",
+          right.techSize ?? "",
+          direction,
+        );
       case "quantity":
       default:
         return compareValues(left.quantity, right.quantity, direction);
@@ -179,9 +237,12 @@ export function toTableRows(items: WbInventoryItem[]): WbInventoryTableRow[] {
   return items.map((item) => ({
     id:
       item.warehouseName === "Все склады"
-        ? `product-${item.nmID}`
-        : `warehouse-${item.nmID}-${item.warehouseName}`,
+        ? `size-${item.chrtId ?? item.nmID}`
+        : `warehouse-${item.nmID}-${item.chrtId ?? "none"}-${item.warehouseName}`,
     nmID: item.nmID,
+    chrtId: item.chrtId,
+    techSize: item.techSize,
+    barcode: item.barcode,
     vendorCode: item.vendorCode,
     displayTitle: getDisplayTitle(item),
     warehouseName: item.warehouseName,

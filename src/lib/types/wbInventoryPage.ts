@@ -4,9 +4,13 @@ import type {
   WbProductSource,
 } from "@/lib/integrations/types";
 
-export type WbInventoryGrouping = "warehouse" | "product";
+export type WbInventoryGrouping = "warehouse" | "size";
 
-export type WbInventorySortKey = "quantity" | "vendorCode" | "warehouseName";
+export type WbInventorySortKey =
+  | "quantity"
+  | "vendorCode"
+  | "warehouseName"
+  | "techSize";
 
 export type WbInventorySortDirection = "asc" | "desc";
 
@@ -22,6 +26,9 @@ export type WbInventoryFilters = {
 export type WbInventoryTableRow = {
   id: string;
   nmID: number;
+  chrtId: number | null;
+  techSize: string | null;
+  barcode: string | null;
   vendorCode: string | null;
   displayTitle: string;
   warehouseName: string;
@@ -37,9 +44,12 @@ export type WbInventoryPageMetrics = {
   totalInWayToClient: number;
   totalInWayFromClient: number;
   uniqueNmIds: number;
+  uniqueChrtIds: number;
   uniqueWarehouses: number;
   matchedNmIdsCount: number;
   stockNmIdsCount: number;
+  serverTotalQuantity: number;
+  totalsMatch: boolean;
 };
 
 export type { WbInventoryItem, WbInventoryResult, WbProductSource };

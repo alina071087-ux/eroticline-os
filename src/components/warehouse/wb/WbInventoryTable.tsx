@@ -13,7 +13,7 @@ type WbInventoryTableProps = {
   sortKey: WbInventorySortKey;
   sortDirection: WbInventorySortDirection;
   onSort: (key: WbInventorySortKey) => void;
-  grouping: "warehouse" | "product";
+  isAllWarehouses: boolean;
 };
 
 const thClass =
@@ -78,12 +78,12 @@ export function WbInventoryTable({
   sortKey,
   sortDirection,
   onSort,
-  grouping,
+  isAllWarehouses,
 }: WbInventoryTableProps) {
   return (
     <section className="overflow-hidden rounded-2xl border border-white/[0.06] bg-[#111113] shadow-[0_1px_2px_rgba(0,0,0,0.35),0_8px_24px_rgba(0,0,0,0.2)]">
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[980px] border-collapse">
+        <table className="w-full min-w-[1280px] border-collapse">
           <thead className="sticky top-0 z-10 bg-[#141416] shadow-[0_1px_0_0_rgba(255,255,255,0.06)]">
             <tr>
               <th className={thClass}>
@@ -97,8 +97,19 @@ export function WbInventoryTable({
               </th>
               <th className={thClass}>Название</th>
               <th className={thClass}>nmID</th>
+              <th className={thClass}>chrtId</th>
               <th className={thClass}>
-                {grouping === "product" ? (
+                <SortButton
+                  label="Размер"
+                  column="techSize"
+                  sortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSort={onSort}
+                />
+              </th>
+              <th className={thClass}>Штрихкод</th>
+              <th className={thClass}>
+                {isAllWarehouses ? (
                   "Склад WB"
                 ) : (
                   <SortButton
@@ -134,10 +145,13 @@ export function WbInventoryTable({
                 <td className={`${tdClass} font-medium text-zinc-200`}>
                   {row.vendorCode ?? "—"}
                 </td>
-                <td className={`${tdClass} max-w-[280px] truncate`}>
+                <td className={`${tdClass} max-w-[220px] truncate`}>
                   {row.displayTitle}
                 </td>
                 <td className={tdClass}>{row.nmID}</td>
+                <td className={tdClass}>{row.chrtId ?? "—"}</td>
+                <td className={tdClass}>{row.techSize || "—"}</td>
+                <td className={`${tdClass} font-mono text-xs`}>{row.barcode ?? "—"}</td>
                 <td className={tdClass}>{row.warehouseName}</td>
                 <td className={`${tdClass} text-right font-medium text-zinc-100`}>
                   {formatInventoryNumber(row.quantity)}

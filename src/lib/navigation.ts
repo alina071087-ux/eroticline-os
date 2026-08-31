@@ -57,6 +57,10 @@ export const navItems: NavItem[] = [
         ],
       },
       {
+        href: "/warehouse/sku",
+        label: "Единый справочник SKU",
+      },
+      {
         href: "/warehouse/sku-directory",
         label: "Справочник SKU",
       },

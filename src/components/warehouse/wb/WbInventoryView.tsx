@@ -4,11 +4,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { WbInventoryResult } from "@/lib/integrations/types";
 import {
   buildInventoryMetrics,
-  filterInventoryItems,
   formatFetchedAt,
   getSafeErrorMessage,
   getWarehouseOptions,
-  groupInventoryItems,
+  prepareInventoryDisplayItems,
   sortInventoryItems,
   toTableRows,
 } from "@/lib/data/wbInventoryPage";
@@ -90,13 +89,18 @@ export function WbInventoryView() {
 
   const allItems = useMemo(() => result?.items ?? [], [result?.items]);
 
+  const displayItems = useMemo(
+    () => prepareInventoryDisplayItems(allItems, filters),
+    [allItems, filters],
+  );
+
   const metrics = useMemo(() => {
     if (!result) {
       return null;
     }
 
-    return buildInventoryMetrics(allItems, result);
-  }, [allItems, result]);
+    return buildInventoryMetrics(displayItems, result, allItems);
+  }, [displayItems, allItems, result]);
 
   const warehouses = useMemo(
     () => getWarehouseOptions(allItems),
@@ -104,11 +108,11 @@ export function WbInventoryView() {
   );
 
   const tableRows = useMemo(() => {
-    const filtered = filterInventoryItems(allItems, filters);
-    const grouped = groupInventoryItems(filtered, grouping);
-    const sorted = sortInventoryItems(grouped, sortKey, sortDirection);
+    const sorted = sortInventoryItems(displayItems, sortKey, sortDirection);
     return toTableRows(sorted);
-  }, [allItems, filters, grouping, sortDirection, sortKey]);
+  }, [displayItems, sortDirection, sortKey]);
+
+  const isAllWarehouses = filters.warehouse === "all";
 
   const handleSort = (key: WbInventorySortKey) => {
     if (sortKey === key) {
@@ -129,7 +133,7 @@ export function WbInventoryView() {
               Остатки Wildberries
             </h2>
             <p className="mt-1.5 text-sm text-zinc-400">
-              Реальные остатки по складам маркетплейса на уровне nmID
+              Реальные остатки по chrtId (размер) и складу Wildberries
             </p>
           </div>
 
@@ -174,7 +178,7 @@ export function WbInventoryView() {
                 sortKey={sortKey}
                 sortDirection={sortDirection}
                 onSort={handleSort}
-                grouping={grouping}
+                isAllWarehouses={isAllWarehouses}
               />
             )}
           </>

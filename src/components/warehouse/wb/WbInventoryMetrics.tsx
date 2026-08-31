@@ -56,7 +56,7 @@ export function WbInventoryMetrics({ metrics }: WbInventoryMetricsProps) {
   const matchedRatio = `${metrics.matchedNmIdsCount} / ${metrics.stockNmIdsCount}`;
 
   return (
-    <section className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
+    <section className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-7">
       <MetricCard
         title="Всего остатков на складах WB"
         value={formatInventoryNumber(metrics.totalQuantity)}
@@ -77,6 +77,14 @@ export function WbInventoryMetrics({ metrics }: WbInventoryMetricsProps) {
         icon={Undo2}
         accent="text-amber-400"
         bg="bg-amber-500/15"
+      />
+      <MetricCard
+        title="Размеров (chrtId)"
+        value={formatInventoryNumber(metrics.uniqueChrtIds)}
+        subtitle="уникальных chrtId"
+        icon={Boxes}
+        accent="text-fuchsia-400"
+        bg="bg-fuchsia-500/15"
       />
       <MetricCard
         title="Товарных карточек"

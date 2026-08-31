@@ -65,7 +65,7 @@ export function WbInventoryFiltersBar({
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <label className="flex flex-col gap-1.5 lg:col-span-2">
           <span className="text-xs font-medium text-zinc-500">
-            Поиск по артикулу, названию или nmID
+            Поиск по артикулу, названию, nmID, chrtId, размеру или штрихкоду
           </span>
           <input
             type="search"
@@ -111,7 +111,7 @@ export function WbInventoryFiltersBar({
           }
         >
           <option value="warehouse">По складам</option>
-          <option value="product">По товарам</option>
+          <option value="size">По размерам (chrtId)</option>
         </SelectField>
       </div>
 
